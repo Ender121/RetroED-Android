@@ -212,7 +212,11 @@ int main(int argc, char *argv[])
 
     SplashScreen splash;
     splash.showMessage("Setting up display format...");
+#ifndef Q_OS_ANDROID
+    // On Android the splash is a native always-on-top window that can stay over the main window and
+    // block every touch, so it isn't shown there (showMessage() on a hidden splash is harmless)
     splash.show();
+#endif
 
     splash.showMessage("Setting up appConfig...");
 
@@ -304,7 +308,15 @@ int main(int argc, char *argv[])
     GameLink::Setup();
 
     MainWindow w;
+#ifdef Q_OS_ANDROID
+    // phones: one full-screen window (a saved desktop size/position makes no sense here)
+    splash.close();
+    w.showMaximized();
+    w.raise();
+    w.activateWindow();
+#else
     splash.finish(&w);
     w.show();
+#endif
     return a.exec();
 }
