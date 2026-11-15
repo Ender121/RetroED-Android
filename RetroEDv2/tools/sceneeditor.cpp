@@ -1795,7 +1795,8 @@ bool SceneEditor::eventFilter(QObject *object, QEvent *event)
             bool status = false;
             // QMouseEvent *mEvent = static_cast<QMouseEvent *>(event);
 
-            auto mPos = viewer->mapFromGlobal(QCursor::pos());
+            // Touch-style input: take the position from the event itself
+            auto mPos = static_cast<QMouseEvent *>(event)->pos();
 
             viewer->mousePos.x = mPos.x();
             viewer->mousePos.y = mPos.y();
@@ -1808,49 +1809,9 @@ bool SceneEditor::eventFilter(QObject *object, QEvent *event)
                 float moveX = viewer->mousePos.x - viewer->reference.x();
                 float moveY = viewer->mousePos.y - viewer->reference.y();
 
-                QPoint cursorPos = QApplication::desktop()->cursor().pos();
-                cursorPos -= QPoint(moveX, moveY);
-
-                QScreen *screen = QGuiApplication::screenAt(cursorPos);
-                cursorPos += QPoint(moveX, moveY);
-                if (!screen) {
-                    QGuiApplication::screenAt(cursorPos);
-                }
-
-                QRect screenRect = screen->availableGeometry().adjusted(20, 20, -20, -20);
-
-                if (!screenRect.contains(cursorPos)) {
-                    if (cursorPos.x() < screenRect.x()) {
-                        cursorPos.setX(cursorPos.x() + (screenRect.width() - 5));
-                        viewer->reference.setX(viewer->reference.x() + (screenRect.width() - 5));
-                    }
-                    if (cursorPos.x() > screenRect.x() + screenRect.width()) {
-                        cursorPos.setX(cursorPos.x() - (screenRect.width() - 5));
-                        viewer->reference.setX(viewer->reference.x() - (screenRect.width() - 5));
-                    }
-
-                    if (cursorPos.y() < screenRect.y()) {
-                        cursorPos.setY(cursorPos.y() + (screenRect.height() - 5));
-                        viewer->reference.setY(viewer->reference.y() + (screenRect.height() - 5));
-                    }
-                    if (cursorPos.y() > screenRect.y() + screenRect.height()) {
-                        cursorPos.setY(cursorPos.y() - (screenRect.height() - 5));
-                        viewer->reference.setY(viewer->reference.y() - (screenRect.height() - 5));
-                    }
-
-                    auto mousePos = viewer->mapFromGlobal(cursorPos);
-                    moveX         = mousePos.x() - viewer->reference.x();
-                    moveY         = mousePos.y() - viewer->reference.y();
-
-                    viewer->mousePos.x = mousePos.x();
-                    viewer->mousePos.y = mousePos.y();
-
-                    QCursor::setPos(cursorPos);
-                    viewer->reference = mousePos;
-                }
-                else {
-                    viewer->reference = mPos;
-                }
+                // A finger can't be warped across the screen like a cursor,
+                // so there is no edge-wrapping while dragging.
+                viewer->reference = mPos;
 
                 viewer->cameraPos.x -= moveX * viewer->invZoom();
                 viewer->cameraPos.y -= moveY * viewer->invZoom();

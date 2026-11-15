@@ -2,6 +2,8 @@
 #include "phantomstyle.h"
 
 #include <QApplication>
+#include <QCommandLineParser>
+#include <QMouseEvent>
 #include "version.hpp"
 
 #include "splashscreen.hpp"
@@ -83,6 +85,54 @@ public:
     }
 };
 
+// Makes every mouse click behave like a touch on a touchscreen:
+// a touch has no "right" or "middle" button, so any pressed button is reported to the widgets as
+// the primary (left) button. Panning/selection is done with the tools, just like with a finger.
+class MouseAsTouchFilter : public QObject
+{
+public:
+    bool eventFilter(QObject *obj, QEvent *event) override
+    {
+        if (busy)
+            return false;
+
+        switch (event->type()) {
+            case QEvent::MouseButtonPress:
+            case QEvent::MouseButtonRelease:
+            case QEvent::MouseButtonDblClick:
+            case QEvent::MouseMove: {
+                auto *me = static_cast<QMouseEvent *>(event);
+
+                // already coming from a real touch (or already remapped): leave it alone
+                if (me->source() != Qt::MouseEventNotSynthesized)
+                    return false;
+
+                Qt::MouseButton button = me->button() != Qt::NoButton ? Qt::LeftButton : Qt::NoButton;
+                Qt::MouseButtons buttons =
+                    me->buttons() != Qt::NoButton ? Qt::MouseButtons(Qt::LeftButton) : Qt::MouseButtons();
+
+                if (button == me->button() && buttons == me->buttons())
+                    return false; // plain left click, nothing to remap
+
+                QMouseEvent touchLike(me->type(), me->localPos(), me->windowPos(), me->screenPos(),
+                                      button, buttons, me->modifiers(),
+                                      Qt::MouseEventSynthesizedByApplication);
+
+                busy = true;
+                QApplication::sendEvent(obj, &touchLike);
+                busy = false;
+                return true;
+            }
+            default: break;
+        }
+
+        return false;
+    }
+
+private:
+    bool busy = false;
+};
+
 QPalette lightPal;
 QPalette darkPal;
 
@@ -116,8 +166,16 @@ int main(int argc, char *argv[])
     QCommandLineOption consoleOption(QStringList() << "c" << "console",
                                      "Enable console window (Windows only).");
     parser.addOption(consoleOption);
+    QCommandLineOption classicMouseOption(
+        QStringList() << "classic-mouse",
+        "Disable the \"every click is a touch\" behaviour (right/middle buttons work as usual).");
+    parser.addOption(classicMouseOption);
 
     parser.process(a);
+
+    // every cursor click is treated as a tap on a touchscreen (unless --classic-mouse is used)
+    if (!parser.isSet(classicMouseOption))
+        a.installEventFilter(new MouseAsTouchFilter());
 
     // Force enable console if QT_DEBUG is set (debug build)
 #ifndef QT_DEBUG
