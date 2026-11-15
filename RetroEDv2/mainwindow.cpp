@@ -35,6 +35,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 {
     ui->setupUi(this);
 
+#ifdef Q_OS_ANDROID
+    // On Android Qt maps the menu bar to the (invisible) native options menu, so File/Tools/Options
+    // never show up. Draw it as a normal bar inside the window, with finger-sized items instead.
+    ui->menubar->setNativeMenuBar(false);
+    ui->menubar->setVisible(true);
+    ui->menubar->setStyleSheet("QMenuBar { spacing: 6px; } "
+                               "QMenuBar::item { padding: 14px 16px; } "
+                               "QMenu::item { padding: 14px 28px; }");
+#endif
+
     if (appConfig.windowState)
         showMaximized();
     else {
