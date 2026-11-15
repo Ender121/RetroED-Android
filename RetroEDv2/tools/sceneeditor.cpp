@@ -1381,8 +1381,23 @@ bool SceneEditor::event(QEvent *event)
                 filedialog.selectNameFilter(types[viewer->gameType - 1]);
 
             if (filedialog.exec() == QDialog::Accepted) {
+                if (filedialog.selectedFiles().isEmpty())
+                    break;
+
                 int filter     = types.indexOf(filedialog.selectedNameFilter());
                 QString gcPath = "";
+
+                // Android's file dialog may not report which name filter was picked (-1), and
+                // gcTypes[-1] / gameType 0 crash. Fall back to the engine already in use, or to
+                // the file extension (.map = RSDKv1, otherwise RSDKv4).
+                if (filter < 0 || filter >= types.count()) {
+                    if (viewer->gameType != ENGINE_NONE)
+                        filter = viewer->gameType - 1;
+                    else if (QFileInfo(filedialog.selectedFiles()[0]).suffix().toLower() == "map")
+                        filter = 3;
+                    else
+                        filter = 0;
+                }
 
                 QString filePath = QFileInfo(filedialog.selectedFiles()[0]).absolutePath();
                 useDCFormat = (filter == 3 && filePath.contains("DATA/LEVELS"));
@@ -1396,7 +1411,7 @@ bool SceneEditor::event(QEvent *event)
                     QFileDialog gcdialog(this, tr("Open GameConfig"), dir.path());
                     gcdialog.setNameFilters({ gcTypes[filter], "RSDK Game.xml Files (Game*.xml)" });
                     gcdialog.setAcceptMode(QFileDialog::AcceptOpen);
-                    if (gcdialog.exec() == QDialog::Accepted) {
+                    if (gcdialog.exec() == QDialog::Accepted && !gcdialog.selectedFiles().isEmpty()) {
                         gcPath = gcdialog.selectedFiles()[0];
                     }
                     else {
@@ -1405,6 +1420,12 @@ bool SceneEditor::event(QEvent *event)
                 }
                 else {
                     gcPath = gameConfig.filePath;
+                }
+
+                if (gcPath.isEmpty() || !QFileInfo::exists(gcPath)) {
+                    QMessageBox::warning(this, "Scene Editor",
+                                         "A GameConfig file is needed to open this scene.");
+                    return false;
                 }
 
                 LoadScene(filedialog.selectedFiles()[0], gcPath, filter + 1);
@@ -3076,6 +3097,8 @@ bool SceneEditor::SaveScene(bool forceSaveAs)
         if (filedialog.exec() == QDialog::Accepted) {
             QString filepath = filedialog.selectedFiles()[0];
             int type = types.indexOf(filedialog.selectedNameFilter());
+            if (type < 0 || type >= types.count()) // Android may not report the picked filter
+                type = viewer->gameType - 1;
             useDCFormat = filepath.contains("DATA/LEVELS");
 
             if (!CheckOverwrite(filepath, type == 3 ? (useDCFormat ? ".MAP" : ".map") : ".bin", this))
