@@ -22,6 +22,14 @@ two modules will be linked.  Preserve this property!
 #endif /* _WIN32 */
 #include <sys/stat.h>
 
+/* S_IREAD / S_IWRITE are legacy BSD/Windows names: Android (bionic) only has the POSIX ones */
+#ifndef S_IREAD
+#define S_IREAD S_IRUSR
+#endif
+#ifndef S_IWRITE
+#define S_IWRITE S_IWUSR
+#endif
+
 #include "gif_lib.h"
 #include "gif_lib_private.h"
 

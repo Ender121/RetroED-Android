@@ -7,13 +7,8 @@ on:
 
 jobs:
   build:
-    name: APK (${{ matrix.abi }})
+    name: APK (armeabi-v7a + arm64-v8a)
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        # armeabi-v7a = 32-bit phones such as the Motorola Moto C; arm64-v8a = modern 64-bit phones
-        abi: [armeabi-v7a, arm64-v8a]
     env:
       QT_VERSION: 5.15.2
 
@@ -31,7 +26,7 @@ jobs:
         run: |
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
-          "$SDKMANAGER" "platforms;android-29" "build-tools;29.0.3"
+          "$SDKMANAGER" "platforms;android-29" "build-tools;29.0.3" > /dev/null
 
       # Qt 5.15 expects NDK r21e
       - uses: nttld/setup-ndk@v1
@@ -48,15 +43,34 @@ jobs:
           arch: android
           cache: true
 
-      - name: Build
+      # ANDROID_ABIS (armeabi-v7a for 32-bit phones like the Moto C + arm64-v8a) comes from the .pro,
+      # so this builds ONE multi-ABI APK
+      - name: Configure
         env:
           ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           mkdir build && cd build
-          qmake ../RetroEDv2/RetroEDv2.pro -spec android-clang CONFIG+=release ANDROID_ABIS=${{ matrix.abi }}
-          make -j"$(nproc)"
-          make -j"$(nproc)" apk
+          qmake ../RetroEDv2/RetroEDv2.pro -spec android-clang CONFIG+=release
+
+      # -k keeps going after an error so a single run lists every compile error
+      - name: Compile
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          set -o pipefail
+          cd build
+          make -k -j"$(nproc)" 2>&1 | tee ../compile.log
+
+      - name: Package APK
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          set -o pipefail
+          cd build
+          make -j"$(nproc)" apk 2>&1 | tee ../package.log
 
       # Release APKs come out unsigned (not installable), so sign with a throw-away debug key
       - name: Sign APK
@@ -69,10 +83,17 @@ jobs:
           echo "Found: $UNSIGNED"
           "$ANDROID_SDK_ROOT/build-tools/29.0.3/apksigner" sign \
               --ks debug.keystore --ks-pass pass:android --key-pass pass:android \
-              --out "$GITHUB_WORKSPACE/RetroED-${{ matrix.abi }}.apk" "$UNSIGNED"
+              --out "$GITHUB_WORKSPACE/RetroED.apk" "$UNSIGNED"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RetroED-${{ matrix.abi }}
-          path: RetroED-${{ matrix.abi }}.apk
+          name: RetroED-android
+          path: RetroED.apk
           if-no-files-found: error
+
+      # If something failed, print ONLY the error lines (short enough to paste)
+      - name: Show errors
+        if: failure()
+        run: |
+          echo "=== compile errors ==="
+          grep -hE -A2 "error:|Error [0-9]|Project ERROR|undefined reference|fatal" compile.log package.log 2>/dev/null | head -n 120 || true
