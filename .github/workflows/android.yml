@@ -27,6 +27,12 @@ jobs:
           SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platforms;android-29" "build-tools;29.0.3" > /dev/null
+          # Qt 5.15's Gradle/Android plugin is old: it breaks when androiddeployqt picks the newest
+          # platform/build-tools of the runner image, so leave only the ones Qt 5.15 is happy with
+          cd "$ANDROID_SDK_ROOT"
+          for d in platforms/*;   do [ "$d" = "platforms/android-29" ]    || rm -rf "$d"; done
+          for d in build-tools/*; do [ "$d" = "build-tools/29.0.3" ]      || rm -rf "$d"; done
+          ls platforms build-tools
 
       # Qt 5.15 expects NDK r21e
       - uses: nttld/setup-ndk@v1
@@ -96,4 +102,8 @@ jobs:
         if: failure()
         run: |
           echo "=== compile errors ==="
-          grep -hE -A2 "error:|Error [0-9]|Project ERROR|undefined reference|fatal" compile.log package.log 2>/dev/null | head -n 120 || true
+          grep -hE -A2 "error:|Project ERROR|undefined reference|fatal" compile.log 2>/dev/null | head -n 120 || true
+          echo "=== gradle / packaging errors ==="
+          grep -hE -B2 -A14 "What went wrong|FAILURE|Could not|Execution failed|androiddeployqt" package.log 2>/dev/null | head -n 120 || true
+          echo "=== last lines of package.log ==="
+          tail -n 40 package.log 2>/dev/null || true
