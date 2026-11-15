@@ -21,10 +21,10 @@ const int INK_UNMASK = 7;
 void main()
 {
     out_color  = texture(source, ex_UV);
-    if (out_color.a == 0 || (alpha == 0 && inkEffect < INK_MASKED && inkEffect > INK_BLEND))
+    if (out_color.a == 0.0 || (alpha == 0 && inkEffect < INK_MASKED && inkEffect > INK_BLEND))
         discard;
     float alph = alpha / 255.0;
-    ivec3 placed  = ivec3(texture(dest, ex_UV).rgb * 255);
+    ivec3 placed  = ivec3(texture(dest, ex_UV).rgb * 255.0);
     int truncated = (placed.b >> 3) | ((placed.g >> 2) << 5) | ((placed.r >> 3) << 11);
 
     switch (inkEffect) {

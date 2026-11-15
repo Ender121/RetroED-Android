@@ -13,9 +13,11 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-uniform vec3 light             = vec3(1.0, 1.0, 1.0);
-uniform float ambient_strength = 0.1;
-uniform vec3 light_pos         = vec3(0.0, 32.0, -32.0);
+// GLSL ES doesn't allow initializers on uniforms. These only feed the (currently disabled)
+// lighting result below, so they have no visible effect.
+uniform vec3 light;
+uniform float ambient_strength;
+uniform vec3 light_pos;
 
 void main()
 {

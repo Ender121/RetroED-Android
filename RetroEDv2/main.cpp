@@ -4,6 +4,9 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QMouseEvent>
+#ifdef Q_OS_ANDROID
+#include <QtAndroid>
+#endif
 #include "version.hpp"
 
 #include "splashscreen.hpp"
@@ -139,17 +142,26 @@ QPalette darkPal;
 int main(int argc, char *argv[])
 {
     // Force to use X11 because Wayland is broke in QT 5x
-    #ifdef Q_OS_LINUX
+    // (Q_OS_LINUX is also defined on Android, where there is no xcb)
+    #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
         qputenv("QT_QPA_PLATFORM", "xcb");
     #endif
 
     QSurfaceFormat format = QSurfaceFormat::defaultFormat();
     format.setDepthBufferSize(24);
     format.setStencilBufferSize(8);
+#ifdef Q_OS_ANDROID
+    // Android only has OpenGL ES (no desktop core profile): GLES 3.0 is the equivalent of GL 3.3
+    format.setRenderableType(QSurfaceFormat::OpenGLES);
+    format.setMajorVersion(3);
+    format.setMinorVersion(0);
+    format.setProfile(QSurfaceFormat::NoProfile);
+#else
     format.setMajorVersion(3);
     format.setMinorVersion(3);
-    format.setSwapInterval(appConfig.vSync);
     format.setProfile(QSurfaceFormat::CoreProfile);
+#endif
+    format.setSwapInterval(appConfig.vSync);
 
     QSurfaceFormat::setDefaultFormat(format);
 
@@ -157,6 +169,19 @@ int main(int argc, char *argv[])
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 
     QApplication a(argc, argv);
+
+#ifdef Q_OS_ANDROID
+    // RetroED works with plain file paths (data.rsdk, scenes, ...), so it needs storage access
+    {
+        const QStringList perms = { "android.permission.READ_EXTERNAL_STORAGE",
+                                    "android.permission.WRITE_EXTERNAL_STORAGE" };
+        bool needed = false;
+        for (const QString &p : perms)
+            needed |= QtAndroid::checkPermission(p) != QtAndroid::PermissionResult::Granted;
+        if (needed)
+            QtAndroid::requestPermissionsSync(perms);
+    }
+#endif
 
     QCommandLineParser parser;
     parser.setApplicationDescription(
@@ -239,6 +264,11 @@ int main(int argc, char *argv[])
     homeDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/RetroED/";
     if (!QDir(homeDir).exists())
         QDir(homeDir).mkpath(homeDir);
+#ifdef Q_OS_ANDROID
+    // shared "Documents" may be unwritable (permission denied / scoped storage): use app storage
+    if (!QDir(homeDir).exists())
+        homeDir = appDir;
+#endif
 
     splash.showMessage("Setting up file lists...");
 

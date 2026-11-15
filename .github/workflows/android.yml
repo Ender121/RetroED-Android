@@ -1,0 +1,78 @@
+name: Android APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: APK (${{ matrix.abi }})
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # armeabi-v7a = 32-bit phones such as the Motorola Moto C; arm64-v8a = modern 64-bit phones
+        abi: [armeabi-v7a, arm64-v8a]
+    env:
+      QT_VERSION: 5.15.2
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - name: Android SDK (platform 29 + build tools)
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-29" "build-tools;29.0.3"
+
+      # Qt 5.15 expects NDK r21e
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r21e
+          add-to-path: false
+
+      - uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: android
+          arch: android
+          cache: true
+
+      - name: Build
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          mkdir build && cd build
+          qmake ../RetroEDv2/RetroEDv2.pro -spec android-clang CONFIG+=release ANDROID_ABIS=${{ matrix.abi }}
+          make -j"$(nproc)"
+          make -j"$(nproc)" apk
+
+      # Release APKs come out unsigned (not installable), so sign with a throw-away debug key
+      - name: Sign APK
+        run: |
+          cd build
+          keytool -genkey -keystore debug.keystore -storepass android -keypass android \
+                  -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+                  -dname "CN=RetroED Debug,O=RetroED,C=US"
+          UNSIGNED="$(find . -name '*.apk' | head -n 1)"
+          echo "Found: $UNSIGNED"
+          "$ANDROID_SDK_ROOT/build-tools/29.0.3/apksigner" sign \
+              --ks debug.keystore --ks-pass pass:android --key-pass pass:android \
+              --out "$GITHUB_WORKSPACE/RetroED-${{ matrix.abi }}.apk" "$UNSIGNED"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RetroED-${{ matrix.abi }}
+          path: RetroED-${{ matrix.abi }}.apk
+          if-no-files-found: error

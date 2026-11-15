@@ -29,7 +29,31 @@ public:
         if (!programID)
             return false;
 
-        bool success = programID->addShaderFromSourceFile(type, path.toStdString().c_str());
+        bool success = false;
+
+        QOpenGLContext *ctx = QOpenGLContext::currentContext();
+        if (ctx && ctx->isOpenGLES()) {
+            // OpenGL ES (Android): the shaders are written for desktop GLSL 3.30 core, so swap the
+            // version header for the GLSL ES 3.00 equivalent and declare default precisions.
+            QFile file(path);
+            if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                PrintLog(QString("Error Loading OpenGL Shader: ") + QFileInfo(path).fileName());
+                return false;
+            }
+            QString src = QString::fromUtf8(file.readAll());
+            file.close();
+
+            src.replace(QRegularExpression("^\\s*#version\\s+330(\\s+core)?[^\\n]*\\n"),
+                        "#version 300 es\n"
+                        "precision highp float;\n"
+                        "precision highp int;\n"
+                        "precision highp sampler2D;\n");
+            success = programID->addShaderFromSourceCode(type, src.toUtf8());
+        }
+        else {
+            success = programID->addShaderFromSourceFile(type, path.toStdString().c_str());
+        }
+
         if (success) {
             PrintLog(QString("Loaded OpenGL Shader: ") + QFileInfo(path).fileName());
         }

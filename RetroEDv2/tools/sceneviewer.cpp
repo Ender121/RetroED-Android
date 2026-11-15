@@ -286,7 +286,8 @@ void SceneViewer::initScene(QImage tileset)
     gfxSurface[0].transClr   = tilePalette[0].toQColor();
 
     glFuncs->glActiveTexture(GL_TEXTURE30);
-    glFuncs->glBindTexture(GL_TEXTURE_RECTANGLE, gfxSurface[0].texturePtr->textureId());
+    // (GL_TEXTURE_RECTANGLE doesn't exist in OpenGL ES; the tile shader uses texelFetch on a 2D texture)
+    glFuncs->glBindTexture(GL_TEXTURE_2D, gfxSurface[0].texturePtr->textureId());
     glFuncs->glActiveTexture(active);
 
     gfxSurface[1].scope      = SCOPE_STAGE;
