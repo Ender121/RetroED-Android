@@ -167,11 +167,17 @@ int main(int argc, char *argv[])
 
     QSurfaceFormat::setDefaultFormat(format);
 
+#ifdef Q_OS_ANDROID
+    // Compact UI, PC-like: instead of multiplying a scale factor (a 0.5x QT_SCALE_FACTOR clipped the
+    // popup menus), turn Android's automatic enlargement off and tell Qt the screen is 96 DPI, like a
+    // desktop monitor. Logical pixels == real pixels, fonts/margins use the normal desktop sizes,
+    // and there is no fractional scaling involved.
+    QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+    QApplication::setAttribute(Qt::AA_Use96Dpi);
+#else
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
-
-// (Android: no extra UI scale factor. A 0.5x QT_SCALE_FACTOR made Qt clip the popup menus and leave
-// paint artifacts, so the UI uses Android's own, stable high-DPI scaling. It looks bigger, but works.)
+#endif
 
     QApplication a(argc, argv);
 
