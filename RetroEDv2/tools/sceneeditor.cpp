@@ -192,7 +192,7 @@ SceneEditor::SceneEditor(QWidget *parent) : QWidget(parent), ui(new Ui::SceneEdi
         viewer->screens->position.y = v;
     });
 
-#ifndef Q_NO_PROCESS
+#if !defined(Q_NO_PROCESS) && !defined(Q_OS_ANDROID) // no desktop game launching on Android
     connect(ui->runGame, &QPushButton::clicked, [this]{
         QString gamePath = appConfig.gameManager[viewer->gameType].exePath;
         QString dataPath = appConfig.baseDataManager[viewer->gameType].dataPath;

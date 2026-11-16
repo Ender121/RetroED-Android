@@ -247,16 +247,34 @@ void GameLink::LinkGameObjects(QString gameName)
     if (!logicLib)
         logicLib = new QLibrary;
 
+#ifdef Q_OS_ANDROID
+    // Android mounts shared storage (/sdcard) as "noexec", so a library can't be loaded from there.
+    // Copy it into the app's private folder first, and load that copy.
+    {
+        QFileInfo srcInfo(gameName);
+        QString privDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/gamelinks/";
+        if (srcInfo.exists() && !srcInfo.absoluteFilePath().startsWith(privDir)) {
+            QDir().mkpath(privDir);
+            QString dst = privDir + srcInfo.fileName();
+            QFile::remove(dst);
+            if (QFile::copy(gameName, dst))
+                gameName = dst;
+            else
+                PrintLog("Could not copy the Game library to private storage: " + gameName);
+        }
+    }
+#endif
+
     logicLib->setFileName(gameName);
     logicLib->load();
     if (!logicLib->isLoaded()){
         PrintLog("Failed to link: " + logicLib->errorString());
-        if (logicLib->errorString().contains("0x000000c1")){
-            revision = -1;
-            return;
-        }
+        // Any failed load (wrong architecture, noexec, missing deps...) means this isn't usable.
+        // (The old check only looked for 0x000000c1, which is a Windows-only error code, so on other
+        // platforms the dead library stayed in the list as a valid "revision 3" one.)
+        revision = -1;
+        return;
     }
-    // 0x000000c1 = wrong architecture
     void (*linkGameLogic)(void *) = NULL;
 
     if (logicLib->isLoaded()) {

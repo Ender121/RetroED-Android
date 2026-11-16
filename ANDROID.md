@@ -43,6 +43,8 @@ make apk_install_target   # then: androiddeployqt ... (see Qt docs)
 ## Known limitations
 - Storage: the file dialogs browse real paths, so the app targets API 29 with legacy storage.
   On Android 11+ you may need to grant "All files access" to RetroED in system settings.
-- Loading RSDKv5 `Game` libraries (GameLink) and launching external game executables are
-  desktop-only features.
+- RSDKv5 `Game` libraries (`libGame.so`): Android can't load code from shared storage, so RetroED copies
+  the library into its private folder and loads it from there. It must be built for the phone's ABI
+  (armeabi-v7a on the Moto C), otherwise it is discarded and RetroED asks for another one.
+- The "Run game" button is hidden on Android (it launches a desktop executable).
 - Several editor features depend on keyboard modifiers / right click (grid snap, context menus).

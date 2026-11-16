@@ -162,7 +162,7 @@ SceneEditorv5::SceneEditorv5(QWidget *parent) : QWidget(parent), ui(new Ui::Scen
         });
     }
 
-#ifndef Q_NO_PROCESS
+#if !defined(Q_NO_PROCESS) && !defined(Q_OS_ANDROID) // no desktop game launching on Android
     connect(ui->filterSelection, QOverload<int>::of(&QComboBox::currentIndexChanged),
             [this](int v) {
                 if (v < 0)
