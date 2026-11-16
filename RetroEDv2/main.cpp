@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QMouseEvent>
+#include <QScreen>
+#include <QGuiApplication>
 #ifdef Q_OS_ANDROID
 #include <QtAndroid>
 #endif
@@ -323,6 +325,18 @@ int main(int argc, char *argv[])
     w.showMaximized();
     w.raise();
     w.activateWindow();
+
+    // With a UI scale factor the "maximized" size can be off (cropped / misaligned window), so
+    // always fit the window to the exact usable screen area, also after rotating the phone.
+    {
+        QScreen *screen = QGuiApplication::primaryScreen();
+        auto fitToScreen = [&w, screen]() { w.setGeometry(screen->availableGeometry()); };
+        fitToScreen();
+        QObject::connect(screen, &QScreen::availableGeometryChanged, &w,
+                         [fitToScreen](const QRect &) { fitToScreen(); });
+        QObject::connect(screen, &QScreen::orientationChanged, &w,
+                         [fitToScreen](Qt::ScreenOrientation) { fitToScreen(); });
+    }
 #else
     splash.finish(&w);
     w.show();

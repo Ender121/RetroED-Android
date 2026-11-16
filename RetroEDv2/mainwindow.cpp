@@ -42,6 +42,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->menubar->setVisible(true);
 #endif
 
+#ifndef Q_OS_ANDROID
+    // (on Android the size is set to the screen in main.cpp; a size/position saved at another
+    // UI scale would only make the window cropped or misaligned)
     if (appConfig.windowState)
         showMaximized();
     else {
@@ -49,6 +52,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
             move(appConfig.windowPos);
         resize(appConfig.windowSize);
     }
+#endif
 
     statusLabel    = ui->status;
     statusProgress = ui->statusProgress;
