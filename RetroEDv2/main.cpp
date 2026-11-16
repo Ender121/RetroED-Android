@@ -318,6 +318,21 @@ int main(int argc, char *argv[])
 
     GameLink::Setup();
 
+#ifdef Q_OS_ANDROID
+    {
+        // Even smaller UI: widgets, tabs, buttons and menus size themselves from the font, so a
+        // smaller font shrinks the whole interface (no scale factor involved).
+        // Desktop default is ~12 px; lower = smaller (8 is tiny, 10 is a bit bigger).
+        constexpr int kAndroidFontPx = 9;
+        QFont f = QApplication::font();
+        f.setPixelSize(kAndroidFontPx);
+        QApplication::setFont(f);
+
+        // keep icons/toolbars in proportion with the smaller text
+        a.setStyleSheet("QToolButton { icon-size: 12px; } QMenu::icon { width: 12px; height: 12px; }");
+    }
+#endif
+
     MainWindow w;
 #ifdef Q_OS_ANDROID
     // phones: one full-screen window (a saved desktop size/position makes no sense here)
