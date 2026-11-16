@@ -170,14 +170,8 @@ int main(int argc, char *argv[])
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 
-#ifdef Q_OS_ANDROID
-    // Phones report a very high logical DPI, so the desktop UI looks hugely zoomed in. Scaling by
-    // 0.5 gives roughly the layout of a real PC window (about 2x more content on screen).
-    // Smaller number = smaller UI (0.4 is PC-like but tiny to touch, 0.6 is a bit bigger).
-    // It can be overridden by setting QT_SCALE_FACTOR before launch.
-    if (!qEnvironmentVariableIsSet("QT_SCALE_FACTOR"))
-        qputenv("QT_SCALE_FACTOR", "0.5");
-#endif
+// (Android: no extra UI scale factor. A 0.5x QT_SCALE_FACTOR made Qt clip the popup menus and leave
+// paint artifacts, so the UI uses Android's own, stable high-DPI scaling. It looks bigger, but works.)
 
     QApplication a(argc, argv);
 
