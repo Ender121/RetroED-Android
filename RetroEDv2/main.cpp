@@ -6,6 +6,8 @@
 #include <QMouseEvent>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QDir>
+#include <QMessageBox>
 #ifdef Q_OS_ANDROID
 #include <QtAndroid>
 #endif
@@ -191,6 +193,25 @@ int main(int argc, char *argv[])
             needed |= QtAndroid::checkPermission(p) != QtAndroid::PermissionResult::Granted;
         if (needed)
             QtAndroid::requestPermissionsSync(perms);
+
+        // Without storage access every tool fails silently (stages, GameConfig, sprites... are all
+        // read by plain path), so tell the user instead of letting them hit errors one by one.
+        bool canRead  = false;
+        bool canWrite = false;
+        for (const QString &p : perms) {
+            bool granted = QtAndroid::checkPermission(p) == QtAndroid::PermissionResult::Granted;
+            canRead |= (p.contains("READ") && granted);
+            canWrite |= (p.contains("WRITE") && granted);
+        }
+        const bool listable = QDir("/storage/emulated/0").isReadable() || QDir("/sdcard").isReadable();
+        if (!canRead || !canWrite || !listable) {
+            QMessageBox::warning(
+                nullptr, "RetroED - Storage access",
+                "RetroED can't access the phone's storage, so it won't be able to open the other "
+                "files a stage needs (GameConfig.bin, sprites, ...).\n\n"
+                "Open Android Settings > Apps > RetroED > Permissions and allow \"Storage\" "
+                "(on Android 11+ also \"All files access\"), then start RetroED again.");
+        }
     }
 #endif
 
